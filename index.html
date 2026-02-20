@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>FitTrack Pao</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; padding-bottom: 140px; -webkit-font-smoothing: antialiased; }
+        .header { background: rgba(255,255,255,0.95); padding: 20px; padding-top: env(safe-area-inset-top, 20px); text-align: center; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .header h1 { font-size: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-days { display: flex; overflow-x: auto; background: white; padding: 10px; gap: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .nav-days::-webkit-scrollbar { display: none; }
+        .day-btn { flex: 0 0 auto; padding: 12px 20px; border: none; border-radius: 20px; background: #f0f0f0; color: #666; font-weight: 600; font-size: 14px; cursor: pointer; -webkit-appearance: none; appearance: none; }
+        .day-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .content { padding: 15px; }
+        .day-section { display: none; }
+        .day-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .day-title { color: white; font-size: 20px; margin-bottom: 15px; text-align: center; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+        
+        .btn-pdf { background: #fff; color: #764ba2; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); -webkit-appearance: none; appearance: none; }
+        
+        .exercise-card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: relative; overflow: hidden; transform: translateZ(0); }
+        .exercise-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #667eea; }
+        .exercise-card.activation::before { background: #ffc107; }
+        .exercise-card.main::before { background: #28a745; }
+        .exercise-card.heavy::before { background: #dc3545; }
+        .exercise-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .exercise-name { font-weight: 700; font-size: 16px; flex: 1; padding-right: 10px; }
+        .exercise-type { font-size: 10px; padding: 4px 8px; border-radius: 12px; font-weight: 600; text-transform: uppercase; flex-shrink: 0; }
+        .type-activation { background: #fff3cd; color: #856404; }
+        .type-main { background: #d4edda; color: #155724; }
+        .type-heavy { background: #f8d7da; color: #721c24; }
+        .exercise-reps { font-size: 13px; color: #666; margin-bottom: 12px; }
+        .weight-section { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .weight-input { width: 80px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 18px; font-weight: 700; text-align: center; -webkit-appearance: none; appearance: none; }
+        .weight-input:focus { outline: none; border-color: #667eea; }
+        .btn-save { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none; min-height: 44px; }
+        .btn-save.saved { background: #28a745; }
+        .history-section { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e0e0e0; }
+        .history-title { font-size: 11px; color: #999; margin-bottom: 5px; text-transform: uppercase; }
+        .history-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+        .history-tag { background: #f0f0f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #666; }
+        .history-tag.recent { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .stats-bar { position: fixed; bottom: 60px; left: 0; right: 0; background: white; padding: 15px; padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-around; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 100; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 20px; font-weight: 700; color: #667eea; }
+        .stat-label { font-size: 10px; color: #999; text-transform: uppercase; }
+        .progress-section { background: white; margin: 15px; padding: 15px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 4px; transition: width 0.5s; }
+        #installBanner { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px)); z-index: 200; transform: translateY(0); transition: transform 0.3s; }
+        #installBanner.hidden { transform: translateY(100%); }
+        .banner-content { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .banner-text { flex: 1; font-size: 14px; }
+        .banner-text strong { display: block; font-size: 16px; margin-bottom: 3px; }
+        .banner-close { background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; font-size: 20px; cursor: pointer; -webkit-appearance: none; appearance: none; flex-shrink: 0; }
+        
+        /* Safari/iOS specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .day-btn, .btn-save, .btn-pdf, .banner-close { 
+                -webkit-transform: translateZ(0);
+            }
+            input[type="number"] {
+                -webkit-inner-spin-button: none;
+            }
+        }
+        
+        .ios-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .ios-toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>💪 FitTrack Pao</h1><p>Rutina 5 días | Inicio: 26/01/26</p></div>
+    <div class="nav-days">
+        <button class="day-btn active" data-day="1">Día 1<br><small>Piernas</small></button>
+        <button class="day-btn" data-day="2">Día 2<br><small>Espalda</small></button>
+        <button class="day-btn" data-day="3">Día 3<br><small>Femoral</small></button>
+        <button class="day-btn" data-day="4">Día 4<br><small>Hombros</small></button>
+        <button class="day-btn" data-day="5">Día 5<br><small>Glúteos</small></button>
+    </div>
+    <div class="progress-section">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">📊 Progreso Semanal</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%"></div></div>
+        <div style="text-align:right;font-size:12px;color:#666;margin-top:5px;" id="progressText">0% completado</div>
+    </div>
+    <div class="content" id="printable-content">
+        <div class="day-section active" id="day1">
+            <div class="day-title">
+                Día 1 - Cuádriceps 
+                <button class="btn-pdf" onclick="downloadPDF('day1', 'Cuadriceps')">📄 PDF</button>
+            </div>
+            <div class="exercise-card activation">
+                <div class="exercise-header"><div class="exercise-name">Aductores máquina + Estocadas</div><span class="exercise-type type-activation">Activación</span></div>
+                <div class="exercise-reps">4x15 + 10 estocadas por pierna</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w1-1" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn1-1">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h1-1"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Sillón de Cuádriceps</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10 (2s arriba)</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w1-2" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn1-2">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h1-2"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Sentadilla Multipower</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12,12,10,10</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w1-3" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn1-3">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h1-3"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Prensa 45°</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x15 controlado</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w1-4" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn1-4">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h1-4"></div></div>
+            </div>
+            <div class="exercise-card heavy">
+                <div class="exercise-header"><div class="exercise-name">Estocadas avanzando</div><span class="exercise-type type-heavy">Pesado</span></div>
+                <div class="exercise-reps">3x10 por pierna</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w1-5" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn1-5">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h1-5"></div></div>
+            </div>
+        </div>
+
+        <div class="day-section" id="day2">
+            <div class="day-title">
+                Día 2 - Espalda y Bíceps
+                <button class="btn-pdf" onclick="downloadPDF('day2', 'Espalda_Biceps')">📄 PDF</button>
+            </div>
+            <div class="exercise-card activation">
+                <div class="exercise-header"><div class="exercise-name">Pullover</div><span class="exercise-type type-activation">Calor</span></div>
+                <div class="exercise-reps">4x12,12,10,10</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w2-1" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn2-1">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h2-1"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Jalón al pecho</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10 + 2 drop sets</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w2-2" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn2-2">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h2-2"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Remo bajo polea</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12,12,10,8</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w2-3" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn2-3">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h2-3"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Remo 1 brazo</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10 controlado</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w2-4" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn2-4">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h2-4"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Bíceps martillo</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">3x10 + drop set</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w2-5" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn2-5">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h2-5"></div></div>
+            </div>
+        </div>
+
+        <div class="day-section" id="day3">
+            <div class="day-title">
+                Día 3 - Isquios
+                <button class="btn-pdf" onclick="downloadPDF('day3', 'Isquios')">📄 PDF</button>
+            </div>
+            <div class="exercise-card activation">
+                <div class="exercise-header"><div class="exercise-name">Lumbares en banco</div><span class="exercise-type type-activation">Activación</span></div>
+                <div class="exercise-reps">4x12 (prioriza glúteos)</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w3-1" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn3-1">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h3-1"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Camilla de isquios</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x15 (2s arriba)</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w3-2" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn3-2">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h3-2"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Peso muerto</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12 (técnica)</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w3-3" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn3-3">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h3-3"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">H.T / Elevación cadera</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">5x15,12,10,8,8</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w3-4" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn3-4">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h3-4"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Sillón femorales</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12 (2s abajo)</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w3-5" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn3-5">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h3-5"></div></div>
+            </div>
+        </div>
+
+        <div class="day-section" id="day4">
+            <div class="day-title">
+                Día 4 - Hombros y Tríceps
+                <button class="btn-pdf" onclick="downloadPDF('day4', 'Hombros_Triceps')">📄 PDF</button>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Press mancuernas</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w4-1" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn4-1">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h4-1"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Vuelos laterales</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10 + drop sets</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w4-2" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn4-2">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h4-2"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Elevaciones frontales</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">3x15</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w4-3" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn4-3">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h4-3"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Vuelos posteriores</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w4-4" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn4-4">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h4-4"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Tríceps polea</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">3x12 + parciales</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w4-5" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn4-5">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h4-5"></div></div>
+            </div>
+        </div>
+
+        <div class="day-section" id="day5">
+            <div class="day-title">
+                Día 5 - Glúteos
+                <button class="btn-pdf" onclick="downloadPDF('day5', 'Gluteos')">📄 PDF</button>
+            </div>
+            <div class="exercise-card activation">
+                <div class="exercise-header"><div class="exercise-name">Abducción máquina</div><span class="exercise-type type-activation">Activación</span></div>
+                <div class="exercise-reps">4x20+10 cortitas</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w5-1" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn5-1">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h5-1"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Búlgaras</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x10 por pierna</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w5-2" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn5-2">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h5-2"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">H.T / Elevación cadera</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">4x12 + parciales</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w5-3" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn5-3">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h5-3"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Sentadilla sumo</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">3x15</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w5-4" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn5-4">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h5-4"></div></div>
+            </div>
+            <div class="exercise-card main">
+                <div class="exercise-header"><div class="exercise-name">Patada glúteos</div><span class="exercise-type type-main">Principal</span></div>
+                <div class="exercise-reps">3x12</div>
+                <div class="weight-section"><input type="number" class="weight-input" id="w5-5" placeholder="0" inputmode="decimal" pattern="[0-9]*"><span>kg</span><button class="btn-save" id="btn5-5">💾 Guardar</button></div>
+                <div class="history-section"><div class="history-title">Historial</div><div class="history-tags" id="h5-5"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-item"><div class="stat-value" id="totalWorkouts">0</div><div class="stat-label">Entrenos</div></div>
+        <div class="stat-item"><div class="stat-value" id="totalExercises">0</div><div class="stat-label">Ejercicios</div></div>
+        <div class="stat-item"><div class="stat-value" id="lastWeek">-</div><div class="stat-label">Último</div></div>
+    </div>
+
+    <div id="installBanner">
+        <div class="banner-content">
+            <div class="banner-text"><strong>📱 Instalar App</strong>Toca Compartir ↑ y "Agregar a Inicio"</div>
+            <button class="banner-close" id="closeBanner">✕</button>
+        </div>
+    </div>
+    
+    <div class="ios-toast" id="iosToast"></div>
+
+    <script>
+        // Detección de iOS/Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        
+        // Función segura para localStorage con fallback a memoria
+        let memoryStorage = {};
+        let storageAvailable = false;
+        
+        function checkStorage() {
+            try {
+                const test = '__storage_test__';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                storageAvailable = true;
+                return true;
+            } catch(e) {
+                console.warn('localStorage no disponible (modo privado?)');
+                return false;
+            }
+        }
+        
+        function safeSetItem(key, value) {
+            if (storageAvailable) {
+                try {
+                    localStorage.setItem(key, value);
+                } catch(e) {
+                    memoryStorage[key] = value;
+                }
+            } else {
+                memoryStorage[key] = value;
+            }
+        }
+        
+        function safeGetItem(key) {
+            if (storageAvailable) {
+                try {
+                    return localStorage.getItem(key);
+                } catch(e) {
+                    return memoryStorage[key] || null;
+                }
+            }
+            return memoryStorage[key] || null;
+        }
+        
+        // Inicializar storage
+        checkStorage();
+        
+        // Toast para iOS (reemplaza alert)
+        function showToast(message) {
+            const toast = document.getElementById('iosToast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        // Función para descargar PDF con manejo de errores iOS
+        function downloadPDF(dayId, fileName) {
+            if (isIOS) {
+                // En iOS, html2pdf a veces falla, usamos alternativa
+                const element = document.getElementById(dayId);
+                const opt = {
+                    margin: 10,
+                    filename: `FitTrack_Pao_${fileName}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { 
+                        scale: 2, 
+                        useCORS: true,
+                        logging: false,
+                        letterRendering: true
+                    },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                
+                try {
+                    html2pdf().set(opt).from(element).save().catch(err => {
+                        console.error('Error PDF:', err);
+                        showToast('Error al generar PDF. Intenta de nuevo.');
+                    });
+                } catch(e) {
+                    showToast('Función no soportada en este navegador');
+                }
+            } else {
+                const element = document.getElementById(dayId);
+                const opt = {
+                    margin: 10,
+                    filename: `FitTrack_Pao_${fileName}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(element).save();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cerrar banner
+            const closeBtn = document.getElementById('closeBanner');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    document.getElementById('installBanner').classList.add('hidden');
+                    safeSetItem('bannerClosed', 'true');
+                });
+            }
+            
+            if(safeGetItem('bannerClosed') === 'true') {
+                document.getElementById('installBanner').classList.add('hidden');
+            }
+            
+            // Navegación con soporte táctil mejorado
+            document.querySelectorAll('.day-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var day = this.getAttribute('data-day');
+                    document.querySelectorAll('.day-btn').forEach(function(b) { b.classList.remove('active'); });
+                    document.querySelectorAll('.day-section').forEach(function(s) { s.classList.remove('active'); });
+                    this.classList.add('active');
+                    var daySection = document.getElementById('day' + day);
+                    if (daySection) {
+                        daySection.classList.add('active');
+                    }
+                });
+                
+                // Soporte para touchstart en iOS
+                btn.addEventListener('touchstart', function(e) {
+                    this.style.opacity = '0.7';
+                });
+                btn.addEventListener('touchend', function(e) {
+                    this.style.opacity = '1';
+                });
+            });
+            
+            // Guardar pesos con manejo de errores
+            document.querySelectorAll('.btn-save').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    var id = this.id.replace('btn', '').split('-');
+                    var day = id[0], ex = id[1];
+                    var input = document.getElementById('w' + day + '-' + ex);
+                    
+                    if(!input || !input.value) { 
+                        showToast('Ingresa un peso');
+                        return; 
+                    }
+                    
+                    var weight = parseFloat(input.value);
+                    if(!weight || weight <= 0 || isNaN(weight)) { 
+                        showToast('Peso inválido');
+                        return; 
+                    }
+                    
+                    var key = day + '-' + ex;
+                    var date = new Date().toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit'});
+                    var data = {};
+                    
+                    try {
+                        var stored = safeGetItem('fittrackData');
+                        data = stored ? JSON.parse(stored) : {};
+                    } catch(e) {
+                        data = {};
+                    }
+                    
+                    if(!data[key]) data[key] = {history: [], current: 0};
+                    data[key].current = weight;
+                    data[key].history.unshift({date: date, weight: weight});
+                    if(data[key].history.length > 5) data[key].history.pop();
+                    
+                    safeSetItem('fittrackData', JSON.stringify(data));
+                    
+                    var histContainer = document.getElementById('h' + day + '-' + ex);
+                    if (histContainer) {
+                        histContainer.innerHTML = data[key].history.map(function(h, i) {
+                            return '<span class="history-tag ' + (i===0?'recent':'') + '">' + h.date + ': ' + h.weight + 'kg</span>';
+                        }).join('');
+                    }
+                    
+                    this.classList.add('saved');
+                    this.textContent = '✓ Guardado';
+                    
+                    // Feedback táctil seguro
+                    if (window.navigator && window.navigator.vibrate && !isIOS) {
+                        try {
+                            navigator.vibrate(50);
+                        } catch(e) {}
+                    }
+                    
+                    updateStats();
+                    
+                    // Restaurar botón después de 2 segundos
+                    setTimeout(() => {
+                        this.classList.remove('saved');
+                        this.textContent = '💾 Guardar';
+                    }, 2000);
+                });
+            });
+
+            function updateStats() {
+                var data = {};
+                try {
+                    var stored = safeGetItem('fittrackData');
+                    data = stored ? JSON.parse(stored) : {};
+                } catch(e) {
+                    data = {};
+                }
+                
+                var keys = Object.keys(data);
+                var totalExercises = document.getElementById('totalExercises');
+                var totalWorkouts = document.getElementById('totalWorkouts');
+                var lastWeek = document.getElementById('lastWeek');
+                var progressBar = document.getElementById('progressBar');
+                var progressText = document.getElementById('progressText');
+                
+                if (totalExercises) totalExercises.textContent = keys.length;
+                
+                var days = new Set();
+                keys.forEach(function(k) { days.add(k.split('-')[0]); });
+                if (totalWorkouts) totalWorkouts.textContent = days.size;
+                
+                var lastDate = null;
+                keys.forEach(function(k) { 
+                    if(data[k] && data[k].history && data[k].history[0]) {
+                        lastDate = data[k].history[0].date;
+                    }
+                });
+                if (lastWeek) lastWeek.textContent = lastDate || '-';
+                
+                var percentage = Math.round((keys.length/25)*100);
+                if (progressBar) progressBar.style.width = percentage + '%';
+                if (progressText) progressText.textContent = percentage + '% completado';
+            }
+
+            // Cargar datos existentes
+            try {
+                var stored = safeGetItem('fittrackData');
+                var data = stored ? JSON.parse(stored) : {};
+                
+                Object.keys(data).forEach(function(key) {
+                    var parts = key.split('-');
+                    var input = document.getElementById('w' + parts[0] + '-' + parts[1]);
+                    if(input && data[key]) input.value = data[key].current || '';
+                    
+                    var hist = document.getElementById('h' + parts[0] + '-' + parts[1]);
+                    if(hist && data[key] && data[key].history) {
+                        hist.innerHTML = data[key].history.map(function(h, i) {
+                            return '<span class="history-tag ' + (i===0?'recent':'') + '">' + h.date + ': ' + h.weight + 'kg</span>';
+                        }).join('');
+                    }
+                });
+            } catch(e) {
+                console.error('Error cargando datos:', e);
+            }
+            
+            updateStats();
+            
+            // Prevenir zoom en inputs en iOS
+            if (isIOS) {
+                document.querySelectorAll('input[type="number"]').forEach(function(input) {
+                    input.addEventListener('focus', function() {
+                        document.body.style.zoom = '1';
+                    });
+                });
+            }
+        });
+        
+        // Prevenir comportamientos táctiles problemáticos
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
